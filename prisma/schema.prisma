@@ -1,0 +1,300 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique
+  description       String?
+  website           String?
+  logoUrl           String?
+  country           String?
+  currency          String   @default("USD")
+  stripeAccountId   String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  publications      Publication[]
+  
+  @@map("organizations")
+}
+
+model Publication {
+  id                        String   @id @default(uuid())
+  organizationId            String
+  name                      String
+  slug                      String   @unique
+  description               String?
+  editorialStatement        String?
+  genres                    String[]
+  readingPeriodStart        DateTime?
+  readingPeriodEnd          DateTime?
+  isAcceptingSubmissions    Boolean   @default(false)
+  averageResponseTimeDays   Int?
+  acceptanceRate            Float?
+  paysWriters               Boolean   @default(false)
+  submissionFeeCents        Int       @default(0)
+  feeCurrency               String    @default("USD")
+  feeWaiverAvailable        Boolean   @default(true)
+  socialLinks               Json?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  
+  organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  forms                     Form[]
+  userPublicationRoles      UserPublicationRole[]
+  decisionTemplates         DecisionTemplate[]
+  submissionAnalytics       SubmissionAnalytics[]
+  journalBookmarks          JournalBookmark[]
+  readingPeriodNotifications ReadingPeriodNotification[]
+  
+  @@map("publications")
+}
+
+model User {
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  name                  String
+  bio                   String?
+  website               String?
+  avatarUrl             String?
+  phone                 String?
+  address               Json?
+  socialLinks           Json?
+  emailNotifications    Boolean  @default(true)
+  emailFrequency        String   @default("immediate")
+  preferredGenres       String[]
+  country               String?
+  timezone              String   @default("UTC")
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  submissions           Submission[]
+  reviews               Review[]
+  userPublicationRoles  UserPublicationRole[]
+  journalBookmarks     JournalBookmark[]
+  readingPeriodNotifications ReadingPeriodNotification[]
+  userActivity         UserActivity[]
+  
+  @@map("users")
+}
+
+model UserPublicationRole {
+  id              String   @id @default(uuid())
+  userId          String
+  publicationId   String
+  role            String   @db.Text // 'writer' | 'reader' | 'editor' | 'admin'
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publication     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, publicationId, role])
+  @@map("user_publication_roles")
+}
+
+model Form {
+  id                              String   @id @default(uuid())
+  publicationId                   String
+  title                           String
+  description                     String?
+  instructions                    String?
+  fields                          Json     // Form field configuration
+  isActive                        Boolean  @default(true)
+  submissionCap                   Int?
+  currentSubmissionCount          Int       @default(0)
+  readingPeriodStart              DateTime?
+  readingPeriodEnd                DateTime?
+  allowSimultaneousSubmissions    Boolean   @default(true)
+  responseTimeEstimateDays        Int?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+  
+  publication                     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  submissions                     Submission[]
+  
+  @@map("forms")
+}
+
+model Submission {
+  id                              String   @id @default(uuid())
+  formId                          String
+  userId                          String
+  title                           String
+  subtitle                        String?
+  genre                           String?
+  wordCount                       Int?
+  language                        String   @default("English")
+  isTranslation                   Boolean  @default(false)
+  originalLanguage                String?
+  translatorName                  String?
+  coverLetter                     String?
+  authorBio                       String?
+  status                          String   @default("pending") @db.Text // 'pending' | 'under_review' | 'shortlisted' | 'accepted' | 'declined' | 'withdrawn'
+  submittedAt                     DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+  withdrawalReason                String?
+  withdrawnAt                     DateTime?
+  isSimultaneousSubmission        Boolean  @default(false)
+  simultaneousSubmissionStatus    String? @db.Text // 'active' | 'accepted_elsewhere' | 'withdrawn'
+  
+  form                            Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user                            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissionFiles                 SubmissionFile[]
+  reviews                         Review[]
+  decision                        Decision?
+  
+  @@index([userId])
+  @@index([formId])
+  @@index([status])
+  @@index([genre])
+  @@map("submissions")
+}
+
+model SubmissionFile {
+  id              String   @id @default(uuid())
+  submissionId    String
+  fileName        String
+  originalName    String
+  fileSizeBytes   BigInt
+  mimeType        String
+  filePath        String   // R2 storage path
+  fileHash        String   // for duplicate detection
+  fileType        String   @db.Text // 'manuscript' | 'cover_letter' | 'bio' | 'art' | 'audio' | 'other'
+  isPrimary       Boolean  @default(false)
+  uploadedAt      DateTime @default(now())
+  
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  @@index([submissionId])
+  @@map("submission_files")
+}
+
+model Review {
+  id              String   @id @default(uuid())
+  submissionId    String
+  userId          String
+  rating          Int?     // 1-5 scale
+  recommendation  String?  @db.Text // 'pass' | 'maybe' | 'yes'
+  comments        String?
+  isComplete      Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([submissionId, userId])
+  @@index([submissionId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model Decision {
+  id              String   @id @default(uuid())
+  submissionId    String   @unique
+  decisionType    String   @db.Text // 'accept' | 'decline' | 'revise_resubmit' | 'shortlist'
+  decisionText    String?
+  templateId      String?
+  decidedBy       String   // user ID
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  template        DecisionTemplate? @relation(fields: [templateId], references: [id])
+  
+  @@map("decisions")
+}
+
+model DecisionTemplate {
+  id              String   @id @default(uuid())
+  publicationId   String
+  name            String
+  decisionType    String   @db.Text // 'accept' | 'decline' | 'revise_resubmit' | 'shortlist'
+  subjectTemplate String
+  bodyTemplate    String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  publication     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  decisions       Decision[]
+  
+  @@index([publicationId])
+  @@map("decision_templates")
+}
+
+// Discovery/Community Features
+model JournalBookmark {
+  id              String   @id @default(uuid())
+  userId          String
+  publicationId   String
+  createdAt       DateTime @default(now())
+  
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publication     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, publicationId])
+  @@map("journal_bookmarks")
+}
+
+model ReadingPeriodNotification {
+  id              String   @id @default(uuid())
+  userId          String
+  publicationId   String
+  notificationType String @db.Text // 'opens' | 'closes' | 'both'
+  createdAt       DateTime @default(now())
+  
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publication     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, publicationId, notificationType])
+  @@map("reading_period_notifications")
+}
+
+// Analytics
+model SubmissionAnalytics {
+  id                              String   @id @default(uuid())
+  publicationId                   String
+  date                            DateTime
+  totalSubmissions                Int      @default(0)
+  pendingSubmissions              Int      @default(0)
+  underReviewSubmissions          Int      @default(0)
+  acceptedSubmissions             Int      @default(0)
+  declinedSubmissions             Int      @default(0)
+  averageResponseTimeDays         Float?
+  createdAt                       DateTime @default(now())
+  
+  publication                     Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  
+  @@unique([publicationId, date])
+  @@map("submission_analytics")
+}
+
+model UserActivity {
+  id              String   @id @default(uuid())
+  userId          String
+  activityType    String   @db.Text // 'submission_created' | 'review_completed' | etc.
+  entityType      String   @db.Text // 'submission' | 'review' | etc.
+  entityId        String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("user_activity")
+}
