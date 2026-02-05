@@ -44,17 +44,7 @@ export default function JournalAdminDashboard() {
   const [readers, setReaders] = useState<Reader[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (status === 'loading') return
-    if (!session) {
-      router.push('/auth/signin')
-      return
-    }
-
-    // Load dashboard data
-    loadDashboardData()
-  }, [session, status, router])
-
+  // Load dashboard data function (must be declared before useEffect)
   const loadDashboardData = async () => {
     try {
       // Simulate API calls for now
@@ -128,6 +118,11 @@ export default function JournalAdminDashboard() {
       setLoading(false)
     }
   }
+
+  // Load data on mount (no auth required for demo)
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
   if (loading) {
     return (
