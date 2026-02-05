@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { authOptions } from "../../../lib/auth"
+import { prisma } from "../../../lib/prisma"
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import crypto from 'crypto'
@@ -46,11 +46,7 @@ export async function POST(request: NextRequest) {
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
       include: {
-        form: {
-          include: {
-            fields: true
-          }
-        }
+        form: true
       }
     })
     

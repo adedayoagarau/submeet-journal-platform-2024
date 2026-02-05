@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken
+      // Add custom properties to session if needed
       return session
     },
     async signIn({ user, account, profile }) {

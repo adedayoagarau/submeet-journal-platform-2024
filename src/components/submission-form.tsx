@@ -94,7 +94,7 @@ export default function SubmissionForm({
           formId,
           title: formData.title || 'Untitled',
           genre: formData.genre,
-          wordCount: formData.wordCount ? parseInt(formData.wordCount) : null,
+          wordCount: formData.wordCount ? parseInt(formData.wordCount as string) : null,
           coverLetter: formData.coverLetter,
           authorBio: formData.authorBio,
           // Other form data
